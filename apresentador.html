@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal do Professor - Apresentador de Correções</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-hover: #3a0ca3;
+            --success: #2ed573;
+            --success-bg: #e5fbf0;
+            --danger: #ff4757;
+            --danger-bg: #ffeef0;
+            --bg-color: #f8f9fa;
+            --text-dark: #2f3542;
+            --text-muted: #747d8c;
+            --white: #ffffff;
+            --shadow: 0 10px 20px rgba(0,0,0,0.05);
+            --radius: 16px;
+        }
+
+        body { font-family: 'Nunito', sans-serif; background-color: var(--bg-color); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; color: var(--text-dark); }
+        
+        /* BLOQUEIO MOBILE POPUP */
+        #mobile-blocker { 
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px); z-index: 9999999; 
+            align-items: center; justify-content: center;
+        }
+        
+        /* TELAS INICIAIS */
+        #welcome-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--white); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; transition: opacity 0.4s ease; }
+        .welcome-titles { text-align: center; margin-bottom: 40px; animation: slideDown 0.8s ease-out; }
+        .welcome-titles h1 { font-size: 3.5vw; margin: 0; color: var(--text-dark); font-weight: 800; letter-spacing: -1px; }
+        .welcome-titles h1 span { color: var(--primary); }
+        .welcome-titles h2 { font-size: 1.5vw; margin: 5px 0 0 0; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+        #big-drop-zone { border: 4px dashed #c8d6e5; border-radius: 24px; width: 70%; max-width: 900px; height: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: all 0.3s; background: #f1f6ff; animation: fadeIn 1s ease-out; }
+        
+        #big-drop-zone h3 { font-size: 2.2vw; margin: 0; color: var(--text-dark); font-weight: 700; letter-spacing: 1px; display: inline-block; }
+        #big-drop-zone p { font-size: 1.2vw; margin-top: 15px; color: var(--text-muted); font-weight: 600; }
+        #big-drop-zone.dragover { background: #e0e8ff; border-color: var(--primary); transform: scale(1.02); }
+        #file-input { display: none; }
+
+        @keyframes jumpAttention { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-15px); } 60% { transform: translateY(-7px); } }
+        .jump-anim { animation: jumpAttention 2s infinite; }
+
+        /* APP LAYOUT */
+        #app-container { display: none; flex-direction: column; width: 100%; height: 100%; }
+
+        /* HEADER */
+        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.03); z-index: 50; border-bottom: 1px solid #f1f2f6; height: 75px; flex-shrink: 0; }
+        .header-left { flex: 1; display: flex; align-items: center; }
+        .header-center { flex: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .header-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; }
+        
+        .logo-main { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; color: var(--text-dark); margin: 0; display: flex; align-items: center; gap: 8px; }
+        .logo-main span { color: var(--primary); }
+        .logo-main svg { width: 28px; height: 28px; fill: var(--primary); }
+        .logo-sub { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+        .back-btn { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; font-weight: 800; font-size: 1rem; transition: 0.2s; }
+        .back-btn:hover { color: var(--primary); transform: translateX(-4px); }
+        .back-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+        .status-pill { background: var(--text-dark); color: var(--white); padding: 8px 18px; border-radius: 50px; font-weight: 800; font-size: 12px; letter-spacing: 1px; transition: 0.3s; }
+        .status-pill.presenting { background: var(--primary); box-shadow: 0 4px 15px rgba(67,97,238,0.3); }
+
+        .app-body { display: flex; flex: 1; overflow: hidden; width: 100%; position: relative; }
+
+        /* SIDEBAR E TOGGLE À ESQUERDA */
+        .sidebar-wrapper { display: flex; height: 100%; transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), margin-left 0.4s; z-index: 10; flex-shrink: 0; }
+        .sidebar-wrapper.collapsed { transform: translateX(-280px); margin-left: -280px; }
+        
+        .sidebar { width: 280px; background: var(--white); padding: 25px; box-shadow: 5px 0 20px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 15px; overflow-y: auto; border-right: 1px solid #f1f2f6; box-sizing: border-box; }
+        
+        .sidebar-header { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+        .sidebar-toggle-btn { 
+            width: 35px; height: 35px; border-radius: 8px; background: #f1f2f6; color: var(--primary); 
+            border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; 
+            transition: 0.2s; flex-shrink: 0;
+        }
+        .sidebar-toggle-btn:hover { background: var(--primary); color: white; }
+        .sidebar-toggle-btn svg { width: 20px; height: 20px; fill: currentColor; }
+        
+        .sidebar h3 { margin: 0; color: var(--text-dark); font-weight: 800; flex: 1; }
+        .sidebar h4 { color: var(--text-muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; text-align: center; margin-bottom: 0;}
+        hr { width: 100%; border: 0; border-top: 2px dashed #f1f2f6; margin: 5px 0; }
+
+        .floating-toggle { 
+            position: absolute; left: 20px; top: 20px; width: 45px; height: 45px; border-radius: 50%;
+            background: var(--white); box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #f1f2f6;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--primary);
+            z-index: 20; opacity: 0; pointer-events: none; transition: 0.3s;
+        }
+        .sidebar-wrapper.collapsed ~ .floating-toggle { opacity: 1; pointer-events: auto; }
+        .floating-toggle:hover { background: var(--primary); color: white; }
+        .floating-toggle svg { width: 24px; height: 24px; fill: currentColor; }
+
+        .tool-btn { padding: 14px 20px; border: 2px solid transparent; border-radius: 14px; cursor: pointer; font-size: 16px; font-weight: 800; display: flex; align-items: center; justify-content: flex-start; gap: 16px; background: #f8f9fa; transition: all 0.3s; color: var(--text-muted); line-height: 1; }
+        .tool-btn:hover { transform: translateY(-2px); background: #f1f2f6; color: var(--text-dark); }
+        .tool-btn.active.correct { border-color: var(--success); background: var(--success-bg); color: #21a555; }
+        .tool-btn.active.wrong { border-color: var(--danger); background: var(--danger-bg); color: #d63031; }
+        
+        .icon-box { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
+        .icon-correct { background: var(--success); }
+        .icon-wrong { background: var(--danger); }
+        .icon-box svg { width: 16px; height: 16px; fill: currentColor; }
+
+        /* ÁUDIO E EXPORT */
+        .sound-selector { background: #f8f9fa; padding: 15px; border-radius: 16px; border: 1px solid #f1f2f6; display: flex; flex-direction: column; gap: 12px; }
+        .sound-selector label { font-weight: 800; font-size: 12px; color: var(--text-muted); text-transform: uppercase; display: flex; align-items: center; gap: 6px; letter-spacing: 0.5px; }
+        .sound-selector select { padding: 10px; border-radius: 10px; border: 1px solid #dfe4ea; font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--text-dark); background: var(--white); cursor: pointer; outline: none; transition: 0.2s; appearance: none; }
+        .sound-selector select:focus { border-color: var(--primary); }
+        
+        .audio-player-preview { display: flex; align-items: center; gap: 10px; background: var(--white); padding: 8px 12px; border-radius: 12px; border: 1px solid #dfe4ea; }
+        #preview-play-btn { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--primary); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0; }
+        #preview-play-btn:hover { background: var(--primary-hover); transform: scale(1.1); }
+        #preview-play-btn svg { width: 14px; height: 14px; fill: currentColor; margin-left: 2px; }
+        .audio-track { flex: 1; height: 6px; background: #f1f2f6; border-radius: 3px; overflow: hidden; position: relative; }
+        .audio-progress { height: 100%; width: 0; background: var(--success); border-radius: 3px; }
+        .audio-progress.playing { animation: playAudioAnim 1.5s linear forwards; }
+        @keyframes playAudioAnim { 0% { width: 0%; } 100% { width: 100%; } }
+        
+        .action-sm { padding: 14px; background: var(--text-muted); color: var(--white); border: none; border-radius: 12px; cursor: pointer; font-weight: 800; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .action-sm:hover { background: #57606f; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
+        .action-sm.btn-import { background: var(--primary); }
+        .action-sm.btn-import:hover { background: var(--primary-hover); }
+
+        /* MAIN CONTENT & PDF */
+        .main-content { flex: 1; padding: 25px; overflow: auto; display: block; text-align: center; position: relative; }
+        
+        .controls { background: var(--white); padding: 10px 20px; border-radius: 50px; box-shadow: var(--shadow); margin: 0 auto 30px auto; display: inline-flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; z-index: 50; border: 1px solid #f1f2f6; position: sticky; top: 0; }
+        button.action-btn { height: 42px; padding: 0 24px; border: none; border-radius: 50px; cursor: pointer; background: #f1f2f6; color: var(--text-dark); font-weight: 800; font-size: 15px; transition: all 0.2s; font-family: 'Nunito', sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px; line-height: 1; box-sizing: border-box; }
+        button.action-btn:hover { background: #dfe4ea; transform: scale(1.05); }
+        #toggle-mode { background: var(--primary); color: var(--white); box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3); }
+        #toggle-mode:hover { background: var(--primary-hover); box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4); }
+        #toggle-mode.presentation-active { background: #ff9f43; box-shadow: 0 4px 15px rgba(255, 159, 67, 0.3); }
+        
+        .page-indicator { display: inline-flex; align-items: center; justify-content: center; height: 42px; font-size: 16px; font-weight: 800; min-width: 85px; text-align: center; color: var(--text-dark); background: #f1f2f6; padding: 0 20px; border-radius: 50px; line-height: 1; box-sizing: border-box; }
+        .control-divider { width: 2px; height: 24px; background: #dfe4ea; border-radius: 2px; display: block; margin: 0 4px; }
+        
+        #edit-zoom-container { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 42px; }
+        #edit-zoom-container input[type=range] { width: 100px; cursor: pointer; accent-color: var(--primary); }
+        .reset-zoom-btn { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--text-muted); padding: 0; display: inline-flex; align-items: center; justify-content: center; height: 100%; transition: 0.2s; }
+        .reset-zoom-btn:hover { color: var(--primary); transform: rotate(-45deg); }
+
+        /* RESTAURAÇÃO DO TAMANHO CORRETO DO PDF */
+        #pdf-wrapper { position: relative; background: var(--white); box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-radius: 8px; margin: 0 auto 40px auto; transition: width 0.1s ease-out; text-align: left; display: inline-block; min-height: 500px; width: 65%; }
+        #pdf-render { display: block; width: 100%; height: auto !important; }
+        #draw-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100% !important; cursor: crosshair; }
+        
+        .marker { position: absolute; width: 44px; height: 44px; transform: translate(-50%, -50%); border: 4px solid; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; transition: opacity 0.3s, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); user-select: none; z-index: 5; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .marker svg { width: 24px; height: 24px; fill: currentColor; }
+        .marker.correct { border-color: var(--success); background: var(--success-bg); color: var(--success); }
+        .marker.wrong { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
+        .marker.hidden { opacity: 0; pointer-events: auto; transform: translate(-50%, -50%) scale(0.8); }
+        .marker.visible { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+        
+        .presentation-mode #overlay { cursor: default; }
+        .presentation-mode .marker { cursor: pointer; }
+        .presentation-mode .marker.hidden:hover { opacity: 0.3 !important; transform: translate(-50%, -50%) scale(1.1); box-shadow: none; }
+
+        /* ALINHAMENTO LATERAL DIREITA: Ambos os containers com o mesmo width e right fixos garantem alinhamento perfeito */
+        .pres-corner { position: fixed; bottom: 30px; right: 20px; width: 80px; display: none; flex-direction: column; align-items: center; gap: 15px; z-index: 1000; }
+        .anno-fab-container { position: fixed; right: 20px; bottom: 180px; width: 80px; z-index: 2000; display: none; flex-direction: column-reverse; align-items: center; gap: 15px; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        .anno-fab-container.shift-up { transform: translateY(-110px); } 
+        
+        .zoom-hover-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; }
+        .zoom-hover-wrapper input[type=range] { position: absolute; bottom: 75px; opacity: 0; pointer-events: none; transition: 0.3s; transform: translateY(10px); -webkit-appearance: slider-vertical; width: 8px; height: 100px; cursor: pointer; accent-color: var(--primary); background: var(--white); border-radius: 10px; padding: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .zoom-hover-wrapper input[type=range].show-slider { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        
+        .circle-btn { width: 60px; height: 60px; background: var(--text-dark); color: var(--white); border: none; border-radius: 50%; cursor: pointer; box-shadow: 0 8px 25px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .circle-btn:hover { background: #000; transform: scale(1.1); }
+        .circle-btn svg { width: 28px; height: 28px; fill: var(--white); }
+
+        .anno-fab-main { width: 60px; height: 60px; border-radius: 50%; background: var(--primary); color: white; border: none; box-shadow: 0 4px 15px rgba(67,97,238,0.4); cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
+        .anno-fab-main:hover { transform: scale(1.1); }
+        .anno-fab-main svg { width: 28px; height: 28px; fill: currentColor; }
+        
+        .anno-menu { display: flex; flex-direction: column; gap: 12px; opacity: 0; transform: translateY(20px) scale(0.8); pointer-events: none; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: white; padding: 15px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #f1f2f6; align-items: center; transform-origin: bottom center; }
+        .anno-fab-container.expanded .anno-menu { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+        
+        .anno-btn { width: 45px; height: 45px; border-radius: 12px; border: 2px solid transparent; background: #f8f9fa; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: 0.2s; }
+        .anno-btn svg { width: 22px; height: 22px; fill: currentColor; }
+        .anno-btn:hover { background: #f1f2f6; color: var(--text-dark); }
+        .anno-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(67,97,238,0.3); }
+        
+        .anno-group { display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 10px 0; border-top: 2px dashed #f1f2f6; width: 100%; display: none; }
+        .color-dot { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: 0.2s; }
+        .color-dot.active { border-color: var(--primary); transform: scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .font-btn { font-weight: 900; font-size: 18px; color: var(--text-muted); background: none; border: none; cursor: pointer; transition: 0.2s; }
+        .font-btn:hover { color: var(--primary); transform: scale(1.2); }
+
+        .text-input-marker { position: absolute; min-width: 20px; outline: none; padding: 2px 5px; white-space: nowrap; font-weight: 800; font-family: 'Nunito', sans-serif; cursor: text; z-index: 20; border-radius: 4px; border: 1px dashed rgba(0,0,0,0.2); }
+        .text-input-marker:empty:before { content: 'Texto...'; color: rgba(0,0,0,0.3); }
+        .text-input-marker:focus { border-style: solid; border-color: var(--primary); background: rgba(255,255,255,0.8); }
+
+        /* POPUPS ANIMADOS (TOUR, SPACEBAR, FULLSCREEN, MOBILE) */
+        #tour-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px);
+            z-index: 999990; display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+
+        .animated-popup {
+            background: var(--white); border-radius: 24px; padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; position: relative;
+            transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; flex-direction: column; align-items: center; gap: 15px; width: 90%; max-width: 480px;
+        }
+
+        #tour-overlay.visible { display: flex; opacity: 1; }
+        #tour-overlay.visible .animated-popup { transform: translateY(0); }
+
+        .popup-icon { width: 80px; height: 80px; background: #e0e8ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); margin: 0 auto; }
+        .popup-icon svg { width: 40px; height: 40px; fill: currentColor; }
+        
+        .tour-title { font-size: 22px; font-weight: 800; color: var(--text-dark); margin: 0; }
+        .tour-text { font-size: 15px; color: var(--text-muted); line-height: 1.6; margin: 0 0 15px 0; font-weight: 600; }
+        .tour-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; }
+        .tour-dot { width: 10px; height: 10px; border-radius: 50%; background: #dfe4ea; transition: 0.3s; }
+        .tour-dot.active { background: var(--primary); width: 24px; border-radius: 12px; }
+        .tour-actions { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 10px;}
+        .tour-btn-skip { background: transparent; border: none; color: var(--text-muted); font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s; font-family: 'Nunito', sans-serif;}
+        .tour-btn-skip:hover { color: var(--text-dark); }
+        .tour-btn-next { background: var(--primary); color: var(--white); border: none; padding: 12px 28px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; transition: 0.2s; font-family: 'Nunito', sans-serif; box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3); }
+        .tour-btn-next:hover { background: var(--primary-hover); transform: translateY(-2px); }
+
+        /* Modal Spacebar */
+        #spacebar-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 999990; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
+        #spacebar-modal.visible { display: flex; opacity: 1; }
+        #spacebar-modal.visible .animated-popup { transform: translateY(0) scale(1); }
+        #spacebar-modal .animated-popup { transform: translateY(0) scale(0.8); max-width: 400px; padding: 30px; }
+
+        /* Fullscreen Hint Bouncing */
+        #fullscreen-popup {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: var(--primary); color: white; padding: 15px 25px; border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(67,97,238,0.4); z-index: 3000; display: flex; align-items: center; gap: 12px;
+            font-weight: 800; font-size: 16px; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        #fullscreen-popup svg { width: 24px; height: 24px; fill: white; }
+        #fullscreen-popup.show { opacity: 1; animation: bounceHint 1s infinite alternate; }
+        @keyframes bounceHint { from { transform: translate(-50%, 0); } to { transform: translate(-50%, -15px); } }
+
+        /* FAKE PDF DO TOUR */
+        #fake-pdf-container { display: none; width: 65%; background: var(--white); box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-radius: 8px; margin: 0 auto; height: 500px; padding: 40px; box-sizing: border-box; flex-direction: column; gap: 20px; align-items: flex-start; }
+        .fake-line { background: #dcdde1; border-radius: 4px; height: 15px; width: 100%; }
+        .fake-title { background: #2f3542; border-radius: 6px; height: 35px; width: 60%; margin-bottom: 20px; }
+
+        body.is-presentation .app-header { display: none; }
+        body.is-presentation .sidebar-wrapper { display: none; }
+        body.is-presentation .pres-corner { display: flex; }
+        body.is-presentation #edit-zoom-container, body.is-presentation #zoom-divider-1 { display: none !important; }
+        
+        body.is-fullscreen .controls { display: none; }
+        body.is-fullscreen { background: #111; }
+        body.is-fullscreen .main-content { padding: 0; display: block; text-align: center; } 
+        body.is-fullscreen #pdf-wrapper { margin: 0 auto; display: inline-block; } 
+        body.is-fullscreen #status-badge { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="mobile-blocker">
+        <div class="animated-popup" style="transform: translateY(0); opacity: 1; pointer-events: auto;">
+            <div class="popup-icon">
+                <svg viewBox="0 0 24 24"><path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h7v2H8v2h8v-2h-2v-2h7c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H3V4h18v12z"/></svg>
+            </div>
+            <h2 class="tour-title">Acesso via Computador</h2>
+            <p class="tour-text">Para utilizar o Corretor Interativo com a melhor experiência, acesse por um computador. Essa função não é disponibilizada em celulares ou tablets devido à incompatibilidade de formato com projetores em sala de aula.</p>
+        </div>
+    </div>
+
+    <div id="tour-overlay">
+        <div class="animated-popup">
+            <div class="popup-icon" id="tourIcon"></div>
+            <h2 class="tour-title" id="tourTitle"></h2>
+            <p class="tour-text" id="tourText"></p>
+            
+            <div class="tour-dots" id="tourDots">
+                <div class="tour-dot active"></div>
+                <div class="tour-dot"></div>
+                <div class="tour-dot"></div>
+                <div class="tour-dot"></div>
+            </div>
+
+            <div class="tour-actions">
+                <button class="tour-btn-skip" id="tourSkipBtn" onclick="endTour()">Pular tour</button>
+                <button class="tour-btn-next" id="tourNextBtn" onclick="nextTourStep()">Começar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="spacebar-modal">
+        <div class="animated-popup">
+            <div class="popup-icon">
+                <svg viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
+            </div>
+            <h2 class="tour-title">Hora do Show!</h2>
+            <p class="tour-text" style="margin-bottom:0;">Use a <b>Barra de Espaço</b> do seu teclado para revelar as correções para seus alunos.</p>
+        </div>
+    </div>
+
+    <div id="fullscreen-popup">
+        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        Dica: Use a Tela Cheia para apresentar!
+    </div>
+
+    <div id="welcome-screen">
+        <div class="welcome-titles">
+            <h1>Lúmen<span>Educa</span></h1>
+            <h2>Apresentador de Correções</h2>
+        </div>
+        <div id="big-drop-zone">
+            <h3 id="drop-zone-title" class="jump-anim">Arraste Aqui o PDF da Prova</h3>
+            <p>ou clique para selecionar o arquivo no seu computador</p>
+        </div>
+        <input type="file" id="file-input" accept="application/pdf">
+    </div>
+
+    <div id="app-container">
+        
+        <header class="app-header">
+            <div class="header-left">
+                <a href="index.html" class="back-btn" title="Voltar para a página inicial">
+                    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                    Home
+                </a>
+            </div>
+            
+            <div class="header-center">
+                <div class="logo-main">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm2.5 18H9.5c-.28 0-.5.22-.5.5s.22.5.5.5h5c.28 0 .5-.22.5-.5s-.22-.5-.5-.5z"/></svg>
+                    Lúmen<span>Educa</span>
+                </div>
+                <div class="logo-sub">Apresentador de Correções</div>
+            </div>
+            
+            <div class="header-right">
+                <div class="status-pill" id="status-pill">SÓ EDITANDO</div>
+            </div>
+        </header>
+
+        <div class="app-body">
+
+            <div class="sidebar-wrapper" id="sidebar-wrapper">
+                <div class="sidebar" id="sidebar">
+                    <div class="sidebar-header">
+                        <button class="sidebar-toggle-btn" id="hide-sidebar" title="Ocultar">
+                            <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+                        </button>
+                        <h3>Ferramentas</h3>
+                    </div>
+                    <hr>
+                    
+                    <div class="tool-btn active correct" data-tool="correct" id="tool-correct" title="Marque a alternativa correta na prova">
+                        <div class="icon-box icon-correct"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+                        Marcar Acerto
+                    </div>
+                    <div class="tool-btn wrong" data-tool="wrong" id="tool-wrong" title="Marque as alternativas incorretas">
+                        <div class="icon-box icon-wrong"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></div>
+                        Marcar Erro
+                    </div>
+                    
+                    <hr>
+                    <h4>Áudio da Correção</h4>
+                    <div class="sound-selector">
+                        <label>🎵 Som de Acerto</label>
+                        <select id="acerto-sound-select" title="Escolha o som que tocará ao revelar a resposta correta">
+                            <option value="1">Som 1</option>
+                            <option value="2">Som 2</option>
+                            <option value="3">Som 3</option>
+                        </select>
+                        
+                        <div class="audio-player-preview">
+                            <button id="preview-play-btn" title="Ouvir som">
+                                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </button>
+                            <div class="audio-track">
+                                <div class="audio-progress" id="audio-progress"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr style="margin-top: auto;">
+                    <h4>Projeto</h4>
+                    <button class="action-sm" id="export-btn" title="Salvar as marcações em um arquivo para usar depois">💾 Exportar Marcações</button>
+                    <button class="action-sm btn-import" id="import-btn" title="Carregar um arquivo de marcações já pronto">📂 Importar Marcações</button>
+                    <input type="file" id="import-input" accept=".json" style="display: none;">
+                </div>
+            </div>
+
+            <button class="floating-toggle" id="show-sidebar" title="Mostrar Ferramentas">
+                <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+            </button>
+
+            <div class="main-content" id="main-content">
+                <div class="controls" id="top-controls">
+                    <button class="action-btn" id="prev-page" title="Página Anterior">◀</button>
+                    <span class="page-indicator" title="Página Atual / Total"> <span id="page-num">0</span> &nbsp;/&nbsp; <span id="page-count">0</span> </span>
+                    <button class="action-btn" id="next-page" title="Próxima Página">▶</button>
+                    
+                    <div class="control-divider" id="zoom-divider-1"></div>
+                    
+                    <div id="edit-zoom-container">
+                        <span title="Zoom" style="font-size: 18px; display: flex; align-items: center;">🔍</span>
+                        <input type="range" id="edit-zoom-slider" min="20" max="250" value="80" title="Controle de Zoom (Arraste ou use Ctrl+Scroll)">
+                        <button id="reset-edit-zoom" class="reset-zoom-btn" title="Restaurar Zoom Padrão">↺</button>
+                    </div>
+
+                    <div class="control-divider"></div>
+
+                    <button class="action-btn" id="toggle-mode" title="Ocultar ferramentas e preparar para apresentar aos alunos">▶ Entrar no Modo Apresentação</button>
+                </div>
+
+                <div id="pdf-wrapper">
+                    <canvas id="pdf-render"></canvas>
+                    <canvas id="draw-canvas"></canvas>
+                    <div id="overlay"></div>
+                </div>
+
+                <div id="fake-pdf-container">
+                    <div class="fake-title"></div>
+                    <div class="fake-line"></div>
+                    <div class="fake-line" style="width: 90%;"></div>
+                    <div class="fake-line" style="width: 95%;"></div>
+                    <div class="fake-line" style="width: 80%;"></div>
+                    <div class="fake-title" style="margin-top: 30px; width: 40%;"></div>
+                    <div class="fake-line"></div>
+                    <div class="fake-line" style="width: 85%;"></div>
+                    <div class="fake-line" style="width: 90%;"></div>
+                </div>
+            </div>
+            
+            <div class="anno-fab-container" id="anno-container">
+                <button class="anno-fab-main" id="anno-fab-btn" title="Ferramentas de Desenho">
+                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+                
+                <div class="anno-menu" id="anno-menu">
+                    <button class="anno-btn active" data-mode="mouse" title="Mover / Revelar Marcadores">
+                        <svg viewBox="0 0 24 24"><path d="M13 14h-2V7h2v7zm0 4h-2v-2h2v2zm-1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                    </button>
+                    <button class="anno-btn" data-mode="draw" title="Caneta Grifa/Rabisca">
+                        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    </button>
+                    <button class="anno-btn" data-mode="text" title="Inserir Texto">
+                        <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4H5z"/></svg>
+                    </button>
+                    <button class="anno-btn" data-mode="eraser" title="Borracha Mágica (Apaga no clique/arraste)">
+                        <svg viewBox="0 0 24 24"><path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 0 1-5.66 0L2.81 17c-.78-.79-.78-2.05 0-2.84l10.6-10.6c.79-.78 2.05-.78 2.83 0zM4.22 15.58l3.54 3.53c.78.79 2.04.79 2.83 0l2.12-2.12-6.36-6.36-2.13 2.12c-.78.79-.78 2.05 0 2.83z"/></svg>
+                    </button>
+
+                    <div class="anno-group" id="anno-colors">
+                        <div class="color-dot" style="background: #2f3542;" data-color="#2f3542" title="Preto / Cinza Escuro"></div>
+                        <div class="color-dot active" style="background: #ff4757;" data-color="#ff4757" title="Vermelho"></div>
+                        <div class="color-dot" style="background: #2ed573;" data-color="#2ed573" title="Verde"></div>
+                        <div class="color-dot" style="background: #4361ee;" data-color="#4361ee" title="Azul"></div>
+                        <div class="color-dot" style="background: #ffa502;" data-color="#ffa502" title="Laranja"></div>
+                    </div>
+
+                    <div class="anno-group" id="anno-stroke-tools" style="display: none;">
+                        <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Espessura</label>
+                        <input type="range" id="stroke-slider" min="1" max="30" value="5" style="width: 100%; cursor: pointer; accent-color: var(--primary);" title="Ajustar espessura">
+                    </div>
+
+                    <div class="anno-group" id="anno-text-tools">
+                        <button class="font-btn" onclick="adjustFontSize(4)" title="Aumentar Texto">A+</button>
+                        <button class="font-btn" onclick="adjustFontSize(-4)" title="Diminuir Texto">A-</button>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <div class="pres-corner">
+        <div class="zoom-hover-wrapper">
+            <input type="range" id="pres-zoom-slider" min="20" max="250" value="80" orient="vertical" title="Arraste para Zoom">
+            <button class="circle-btn" id="pres-zoom-btn" style="background: var(--primary);" title="Clique para exibir o ajuste de Zoom">
+                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            </button>
+        </div>
+        <button class="circle-btn" id="fullscreen-btn" title="Tela Cheia">
+            <svg id="icon-enter-fs" viewBox="0 0 24 24">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+            </svg>
+            <svg id="icon-exit-fs" viewBox="0 0 24 24" style="display: none;">
+                <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        let pdfDoc = null, pageNum = 1, pageIsRendering = false, pageNumIsPending = null;
+        const renderScale = 2.5; 
+        
+        let editZoom = 80; 
+        let presZoom = 80;
+
+        const canvas = document.getElementById('pdf-render'), ctx = canvas.getContext('2d');
+        const drawCanvas = document.getElementById('draw-canvas'), dctx = drawCanvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const pdfWrapper = document.getElementById('pdf-wrapper');
+        const editZoomSlider = document.getElementById('edit-zoom-slider');
+        const presZoomSlider = document.getElementById('pres-zoom-slider');
+        const presZoomBtn = document.getElementById('pres-zoom-btn');
+        const resetEditZoomBtn = document.getElementById('reset-edit-zoom');
+        const mainContent = document.getElementById('main-content');
+        const dropZoneTitle = document.getElementById('drop-zone-title');
+        
+        let markers = {}; 
+        let presentationMode = false;
+        let currentTool = 'correct';
+
+        let isDrawing = false, drawMode = 'mouse', drawColor = '#ff4757', annoFontSize = 24;
+
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const appContainer = document.getElementById('app-container');
+        const bigDropZone = document.getElementById('big-drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const statusPill = document.getElementById('status-pill');
+        const soundSelect = document.getElementById('acerto-sound-select');
+        const fakePdfContainer = document.getElementById('fake-pdf-container');
+        const strokeSlider = document.getElementById('stroke-slider');
+
+        (function checkMobile() {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isSmallScreen = window.innerWidth <= 768; 
+            if (isMobile || isSmallScreen) {
+                document.getElementById('mobile-blocker').style.display = 'flex';
+                document.getElementById('welcome-screen').style.display = 'none';
+            }
+        })();
+
+        function setCookie(name, value, days) {
+            let expires = "";
+            if (days) {
+                let date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+        }
+
+        function getCookie(name) {
+            let nameEQ = name + "=";
+            let ca = document.cookie.split(';');
+            for(let i=0;i < ca.length;i++) {
+                let c = ca[i];
+                while (c.charAt(0)==' ') c = c.substring(1,c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+            }
+            return null;
+        }
+
+        const tourSteps = [
+            { 
+                icon: '<svg viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>', 
+                title: "Bem-vindo ao Apresentador!", 
+                text: "Vamos conhecer as principais funções para corrigir e apresentar provas de forma interativa em 4 passos rápidos.",
+                btn: "Começar"
+            },
+            { 
+                icon: '<svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.73 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>', 
+                title: "1. Escolha a Ferramenta", 
+                text: "Selecione se deseja marcar um acerto ou erro e teste os áudios diretamente na barra lateral.",
+                btn: "Avançar"
+            },
+            { 
+                icon: '<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>', 
+                title: "2. Marque a Prova", 
+                text: "Clique em qualquer lugar do PDF para carimbar a marcação.",
+                btn: "Avançar"
+            },
+            { 
+                icon: '<svg viewBox="0 0 24 24"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>', 
+                title: "3. Apresente com Estilo", 
+                text: "No Modo Apresentação as marcações somem para você revelar com a Barra de Espaço. Você também ganha uma lousa interativa com caneta e texto retrátil!",
+                btn: "Entendi"
+            }
+        ];
+
+        let currentTourStep = 0;
+        const tourOverlay = document.getElementById('tour-overlay');
+
+        function startTour() {
+            welcomeScreen.style.display = 'none';
+            appContainer.style.display = 'flex';
+            document.getElementById('pdf-wrapper').style.display = 'none';
+            fakePdfContainer.style.display = 'flex';
+            
+            tourOverlay.classList.add('visible');
+            renderTourStep();
+        }
+
+        function renderTourStep() {
+            const step = tourSteps[currentTourStep];
+            
+            document.getElementById('tourIcon').innerHTML = step.icon;
+            document.getElementById('tourTitle').innerText = step.title;
+            document.getElementById('tourText').innerText = step.text;
+            document.getElementById('tourNextBtn').innerText = step.btn;
+            
+            document.getElementById('tourSkipBtn').style.display = (currentTourStep === tourSteps.length - 1) ? 'none' : 'block';
+
+            const dots = document.getElementById('tourDots').children;
+            for(let i=0; i<dots.length; i++) {
+                dots[i].className = i === currentTourStep ? "tour-dot active" : "tour-dot";
+            }
+        }
+
+        function nextTourStep() {
+            if (currentTourStep < tourSteps.length - 1) {
+                currentTourStep++;
+                renderTourStep();
+            } else {
+                endTour();
+            }
+        }
+
+        function endTour() {
+            setCookie("apresentador_tour_done", "true", 3);
+            tourOverlay.classList.remove('visible');
+            
+            setTimeout(() => {
+                appContainer.style.display = 'none';
+                fakePdfContainer.style.display = 'none';
+                document.getElementById('pdf-wrapper').style.display = 'inline-block';
+                
+                welcomeScreen.style.display = 'flex';
+                welcomeScreen.style.opacity = '1';
+                dropZoneTitle.classList.add('jump-anim');
+            }, 300);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const isMobile = document.getElementById('mobile-blocker').style.display === 'flex';
+            if (!isMobile && !getCookie("apresentador_tour_done")) {
+                startTour();
+            } else if (!isMobile) {
+                dropZoneTitle.classList.add('jump-anim');
+            }
+        });
+
+        const sidebarWrapper = document.getElementById('sidebar-wrapper');
+        const hideSidebarBtn = document.getElementById('hide-sidebar');
+        const showSidebarBtn = document.getElementById('show-sidebar');
+
+        hideSidebarBtn.addEventListener('click', () => {
+            sidebarWrapper.classList.add('collapsed');
+        });
+        showSidebarBtn.addEventListener('click', () => {
+            sidebarWrapper.classList.remove('collapsed');
+        });
+
+        const previewPlayBtn = document.getElementById('preview-play-btn');
+        const audioProgress = document.getElementById('audio-progress');
+        previewPlayBtn.addEventListener('click', () => {
+            playSound('correct'); 
+            audioProgress.classList.remove('playing');
+            void audioProgress.offsetWidth; 
+            audioProgress.classList.add('playing');
+        });
+
+        function updateZoom(newVal, isPres) {
+            const val = Math.max(20, Math.min(newVal, 250));
+            if (isPres) {
+                presZoom = val;
+                pdfWrapper.style.width = presZoom + '%';
+                presZoomSlider.value = presZoom;
+            } else {
+                editZoom = val;
+                pdfWrapper.style.width = editZoom + '%';
+                editZoomSlider.value = editZoom;
+            }
+        }
+
+        editZoomSlider.addEventListener('input', e => updateZoom(e.target.value, false));
+        presZoomSlider.addEventListener('input', e => updateZoom(e.target.value, true));
+        resetEditZoomBtn.addEventListener('click', () => updateZoom(80, false));
+
+        presZoomBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            presZoomSlider.classList.toggle('show-slider');
+            document.getElementById('anno-container').classList.toggle('shift-up');
+        });
+        presZoomSlider.addEventListener('click', (e) => e.stopPropagation());
+        document.addEventListener('click', () => {
+            presZoomSlider.classList.remove('show-slider');
+            document.getElementById('anno-container').classList.remove('shift-up');
+        });
+
+        mainContent.addEventListener('wheel', (e) => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const zoomDelta = e.deltaY > 0 ? -10 : 10;
+                const currentVal = presentationMode ? presZoom : editZoom;
+                updateZoom(currentVal + zoomDelta, presentationMode);
+            }
+        }, { passive: false });
+
+        function playSound(type) {
+            let fileName = '';
+            if (type === 'correct') {
+                const soundNum = soundSelect.value;
+                fileName = `ACERTO${soundNum}QUESTAO.mp3`;
+            } else if (type === 'wrong') {
+                fileName = 'ERROQUESTAO.mp3';
+            }
+            if (fileName) {
+                const audio = new Audio(fileName);
+                audio.play().catch(() => {});
+            }
+        }
+
+        bigDropZone.addEventListener('click', () => fileInput.click());
+        bigDropZone.addEventListener('dragover', e => { e.preventDefault(); bigDropZone.classList.add('dragover'); });
+        bigDropZone.addEventListener('dragleave', () => bigDropZone.classList.remove('dragover'));
+        bigDropZone.addEventListener('drop', e => { e.preventDefault(); bigDropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+        fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+        function handleFile(file) {
+            if (file.type !== 'application/pdf') return;
+            const reader = new FileReader();
+            reader.onload = function() {
+                const typedarray = new Uint8Array(this.result);
+                pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+                    pdfDoc = pdf;
+                    document.getElementById('page-count').textContent = pdf.numPages;
+                    pageNum = 1; markers = {}; overlay.innerHTML = ''; clearDrawings();
+                    welcomeScreen.style.opacity = '0';
+                    dropZoneTitle.classList.remove('jump-anim');
+                    
+                    setTimeout(() => {
+                        welcomeScreen.style.display = 'none';
+                        appContainer.style.display = 'flex';
+                        renderPage(pageNum);
+                    }, 400);
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                const target = e.currentTarget;
+                target.classList.add('active');
+                currentTool = target.dataset.tool;
+            });
+        });
+
+        const renderPage = num => {
+            pageIsRendering = true;
+            pdfDoc.getPage(num).then(page => {
+                const viewport = page.getViewport({ scale: renderScale });
+                canvas.height = viewport.height; canvas.width = viewport.width;
+                drawCanvas.height = viewport.height; drawCanvas.width = viewport.width;
+                
+                page.render({ canvasContext: ctx, viewport: viewport }).promise.then(() => {
+                    pageIsRendering = false;
+                    if (pageNumIsPending !== null) { renderPage(pageNumIsPending); pageNumIsPending = null; }
+                });
+                document.getElementById('page-num').textContent = num;
+                loadMarkersForPage(num);
+                clearDrawings(); 
+            });
+        };
+
+        const queueRenderPage = num => { if (pageIsRendering) pageNumIsPending = num; else renderPage(num); };
+        const changePage = (direction) => {
+            if (direction === 'prev' && pageNum > 1) { pageNum--; queueRenderPage(pageNum); }
+            if (direction === 'next' && pdfDoc && pageNum < pdfDoc.numPages) { pageNum++; queueRenderPage(pageNum); }
+        };
+        document.getElementById('prev-page').addEventListener('click', () => changePage('prev'));
+        document.getElementById('next-page').addEventListener('click', () => changePage('next'));
+
+        function attachMarkerEvents(marker) {
+            marker.addEventListener('click', function(ev) {
+                if(drawMode !== 'mouse') return; 
+                ev.stopPropagation(); 
+                if (presentationMode) {
+                    const isHidden = this.classList.contains('hidden');
+                    if (isHidden) {
+                        this.classList.remove('hidden'); this.classList.add('visible');
+                        if (this.dataset.type === 'correct') { dispararConfete(this); playSound('correct'); }
+                        else { playSound('wrong'); }
+                    } else {
+                        this.classList.remove('visible'); this.classList.add('hidden');
+                    }
+                } else {
+                    this.remove();
+                    markers[pageNum] = markers[pageNum].filter(m => m !== this);
+                }
+            });
+        }
+
+        const annoContainer = document.getElementById('anno-container');
+        const annoFabBtn = document.getElementById('anno-fab-btn');
+
+        annoFabBtn.addEventListener('click', () => {
+            annoContainer.classList.toggle('expanded');
+        });
+
+        function updateAnnoTools() {
+            document.getElementById('anno-colors').style.display = (drawMode === 'draw' || drawMode === 'text') ? 'flex' : 'none';
+            document.getElementById('anno-text-tools').style.display = (drawMode === 'text') ? 'flex' : 'none';
+            document.getElementById('anno-stroke-tools').style.display = (drawMode === 'draw' || drawMode === 'eraser') ? 'flex' : 'none';
+        }
+
+        document.querySelectorAll('.anno-btn[data-mode]').forEach(btn => {
+            btn.onclick = function() {
+                document.querySelectorAll('.anno-btn[data-mode]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                drawMode = this.dataset.mode;
+                updateAnnoTools();
+            };
+        });
+
+        document.querySelectorAll('.color-dot').forEach(dot => {
+            dot.onclick = function() {
+                document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+                this.classList.add('active');
+                drawColor = this.dataset.color;
+            };
+        });
+
+        function getCanvasCoords(e) {
+            const rect = drawCanvas.getBoundingClientRect();
+            const scaleX = drawCanvas.width / rect.width;
+            const scaleY = drawCanvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        overlay.addEventListener('mousedown', (e) => {
+            if (!presentationMode) {
+                const rect = overlay.getBoundingClientRect();
+                const xPercent = (e.offsetX / rect.width) * 100;
+                const yPercent = (e.offsetY / rect.height) * 100;
+
+                const marker = document.createElement('div');
+                const isCorrect = currentTool === 'correct';
+                marker.className = `marker visible ${isCorrect ? 'correct' : 'wrong'}`;
+                marker.style.left = `${xPercent}%`; marker.style.top = `${yPercent}%`;
+                marker.innerHTML = isCorrect ? '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+                marker.dataset.type = currentTool;
+                
+                attachMarkerEvents(marker);
+                overlay.appendChild(marker);
+                if (!markers[pageNum]) markers[pageNum] = [];
+                markers[pageNum].push(marker);
+                return;
+            }
+
+            if(drawMode === 'text') {
+                createTextInput(e.offsetX, e.offsetY);
+                return;
+            }
+            if(drawMode === 'eraser' && e.target.classList.contains('text-input-marker')) {
+                e.target.remove();
+                return;
+            }
+            if(drawMode !== 'draw' && drawMode !== 'eraser') return;
+            
+            isDrawing = true;
+            const {x, y} = getCanvasCoords(e);
+            dctx.beginPath();
+            dctx.moveTo(x, y);
+        });
+
+        overlay.addEventListener('mousemove', (e) => {
+            if(!isDrawing) return;
+            const {x, y} = getCanvasCoords(e);
+            dctx.lineTo(x, y);
+            
+            const baseThickness = strokeSlider.value; 
+
+            if(drawMode === 'draw') {
+                dctx.globalCompositeOperation = "source-over";
+                dctx.strokeStyle = drawColor;
+                dctx.lineWidth = baseThickness * (drawCanvas.width / overlay.offsetWidth); 
+                dctx.lineCap = 'round'; dctx.lineJoin = 'round';
+                dctx.stroke();
+            } else if (drawMode === 'eraser') {
+                dctx.globalCompositeOperation = "destination-out";
+                dctx.lineWidth = (baseThickness * 4) * (drawCanvas.width / overlay.offsetWidth);
+                dctx.lineCap = 'round'; dctx.lineJoin = 'round';
+                dctx.stroke();
+            }
+        });
+
+        overlay.addEventListener('mouseup', () => isDrawing = false);
+        overlay.addEventListener('mouseleave', () => isDrawing = false);
+
+        function createTextInput(x, y) {
+            const txt = document.createElement('div');
+            txt.className = 'text-input-marker';
+            txt.contentEditable = true;
+            txt.style.left = x + 'px'; txt.style.top = y + 'px';
+            txt.style.color = drawColor;
+            txt.style.fontSize = annoFontSize + 'px';
+            
+            txt.onmousedown = (e) => e.stopPropagation(); 
+            
+            overlay.appendChild(txt);
+            setTimeout(() => txt.focus(), 10);
+        }
+
+        window.adjustFontSize = function(val) {
+            annoFontSize = Math.max(12, annoFontSize + val);
+            const activeText = document.activeElement;
+            if(activeText && activeText.classList.contains('text-input-marker')) {
+                activeText.style.fontSize = annoFontSize + 'px';
+            }
+        }
+
+        function clearDrawings() {
+            dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            document.querySelectorAll('.text-input-marker').forEach(t => t.remove());
+        }
+
+        function loadMarkersForPage(num) {
+            overlay.innerHTML = '';
+            clearDrawings();
+            if (markers[num]) {
+                markers[num].forEach(m => {
+                    m.className = `marker ${presentationMode ? 'hidden' : 'visible'} ${m.dataset.type}`;
+                    overlay.appendChild(m);
+                });
+            }
+        }
+
+        document.getElementById('toggle-mode').addEventListener('click', (e) => {
+            presentationMode = !presentationMode;
+            const btn = e.target;
+            const spaceModal = document.getElementById('spacebar-modal');
+            const fsPopup = document.getElementById('fullscreen-popup');
+            
+            if (presentationMode) {
+                btn.innerHTML = '⏹ Sair do Modo Apresentação';
+                btn.classList.add('presentation-active');
+                document.body.classList.add('is-presentation');
+                
+                annoContainer.style.display = 'flex';
+                drawMode = 'mouse';
+                document.querySelector('.anno-btn[data-mode="mouse"]').click();
+                
+                updateZoom(80, true);
+
+                statusPill.textContent = 'APRESENTANDO';
+                statusPill.classList.add('presenting');
+
+                spaceModal.classList.add('visible');
+                
+                setTimeout(() => { 
+                    spaceModal.classList.remove('visible'); 
+                    
+                    if (presentationMode) {
+                        setTimeout(() => {
+                            fsPopup.classList.add('show');
+                            setTimeout(() => fsPopup.classList.remove('show'), 3000);
+                        }, 400); 
+                    }
+                }, 3000);
+
+                if (markers[pageNum]) markers[pageNum].forEach(m => { m.classList.remove('visible'); m.classList.add('hidden'); });
+            } else {
+                btn.innerHTML = '▶ Modo Apresentação';
+                btn.classList.remove('presentation-active');
+                document.body.classList.remove('is-presentation');
+                annoContainer.style.display = 'none';
+                annoContainer.classList.remove('expanded');
+                
+                spaceModal.classList.remove('visible');
+                fsPopup.classList.remove('show');
+                
+                updateZoom(editZoom, false);
+                
+                statusPill.textContent = 'SÓ EDITANDO';
+                statusPill.classList.remove('presenting');
+
+                if (document.fullscreenElement) document.exitFullscreen();
+                if (markers[pageNum]) markers[pageNum].forEach(m => { m.classList.remove('hidden'); m.classList.add('visible'); });
+            }
+        });
+
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const iconEnter = document.getElementById('icon-enter-fs');
+        const iconExit = document.getElementById('icon-exit-fs');
+        
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                document.body.classList.add('is-fullscreen');
+                iconEnter.style.display = 'none'; iconExit.style.display = 'block';
+                document.getElementById('fullscreen-popup').classList.remove('show');
+            } else {
+                document.body.classList.remove('is-fullscreen');
+                iconEnter.style.display = 'block'; iconExit.style.display = 'none';
+            }
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (presentationMode) {
+                if (e.code === 'Space') {
+                    if(document.activeElement.classList.contains('text-input-marker')) return;
+                    e.preventDefault(); 
+                    
+                    if (!markers[pageNum] || markers[pageNum].length === 0) return;
+                    const hiddenMarkers = markers[pageNum].filter(m => m.classList.contains('hidden'));
+                    
+                    if (hiddenMarkers.length === 0) {
+                        markers[pageNum].forEach(m => { m.classList.remove('visible'); m.classList.add('hidden'); });
+                        return;
+                    }
+
+                    const nextCorrect = hiddenMarkers.find(m => m.dataset.type === 'correct');
+
+                    if (nextCorrect) {
+                        nextCorrect.classList.remove('hidden'); nextCorrect.classList.add('visible');
+                        dispararConfete(nextCorrect);
+                        playSound('correct');
+
+                        const cx = parseFloat(nextCorrect.style.left);
+                        const cy = parseFloat(nextCorrect.style.top);
+
+                        hiddenMarkers.forEach(m => {
+                            if (m.dataset.type === 'wrong') {
+                                const wx = parseFloat(m.style.left);
+                                const wy = parseFloat(m.style.top);
+                                if (Math.abs(cx - wx) < 80 && Math.abs(cy - wy) < 40) {
+                                    m.classList.remove('hidden'); m.classList.add('visible');
+                                }
+                            }
+                        });
+                    } else {
+                        playSound('wrong'); 
+                        hiddenMarkers.forEach(m => { m.classList.remove('hidden'); m.classList.add('visible'); });
+                    }
+                }
+                if (e.code === 'ArrowRight' && !document.activeElement.classList.contains('text-input-marker')) { e.preventDefault(); changePage('next'); }
+                if (e.code === 'ArrowLeft' && !document.activeElement.classList.contains('text-input-marker')) { e.preventDefault(); changePage('prev'); }
+            }
+        });
+
+        function dispararConfete(elemento) {
+            const rect = elemento.getBoundingClientRect();
+            confetti({ particleCount: 100, spread: 70, origin: { x: (rect.left + rect.width / 2) / window.innerWidth, y: (rect.top + rect.height / 2) / window.innerHeight }, colors: ['#2ed573', '#ffffff', '#ffdf00'], zIndex: 9999 });
+        }
+
+        document.getElementById('export-btn').addEventListener('click', () => {
+            let filename = prompt("Salvar arquivo como:", "gabarito_prova");
+            if (!filename) return; 
+            if (!filename.toLowerCase().endsWith('.json')) filename += ".json";
+
+            const data = {};
+            for (let page in markers) {
+                data[page] = markers[page].map(m => ({ type: m.dataset.type, left: m.style.left, top: m.style.top }));
+            }
+            const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename; a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-input').click());
+        document.getElementById('import-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = JSON.parse(evt.target.result);
+                    for (let p in markers) markers[p].forEach(m => m.remove());
+                    markers = {}; overlay.innerHTML = '';
+                    
+                    for (let page in data) {
+                        markers[page] = [];
+                        data[page].forEach(item => {
+                            const m = document.createElement('div');
+                            const isCorrect = item.type === 'correct';
+                            m.className = `marker ${presentationMode ? 'hidden' : 'visible'} ${isCorrect ? 'correct' : 'wrong'}`;
+                            m.style.left = item.left; m.style.top = item.top;
+                            m.innerHTML = isCorrect ? '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+                            m.dataset.type = item.type;
+                            attachMarkerEvents(m);
+                            markers[page].push(m);
+                        });
+                    }
+                    loadMarkersForPage(pageNum);
+                    e.target.value = '';
+                } catch(err) { alert("Erro ao importar o arquivo."); }
+            };
+            reader.readAsText(file);
+        });
+    </script>
+</body>
+</html>

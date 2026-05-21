@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sorteador de Nomes - Lúmna Educa</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<style>
+:root{
+    --primary:#3754DB;
+    --primary-hover:#2440bc;
+    --bg:#F4F7FF;
+    --card:#FFFFFF;
+    --text:#172033;
+    --light:#64748B;
+    --border:#E2E8F0;
+    --success:#16a34a;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Inter',sans-serif;
+}
+
+body{
+    background:linear-gradient(180deg,#F6F8FF 0%,#EEF3FF 100%);
+    min-height:100vh;
+    padding:18px;
+    color:var(--text);
+}
+
+.page{
+    max-width:1100px;
+    margin:auto;
+}
+
+.header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+    gap:14px;
+}
+
+.btn-home{
+    text-decoration:none;
+    color:var(--light);
+    background:white;
+    border:1px solid var(--border);
+    padding:12px 16px;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:600;
+    transition:.25s;
+    box-shadow:0 4px 20px rgba(0,0,0,.03);
+}
+
+.btn-home:hover{
+    transform:translateY(-2px);
+    color:var(--primary);
+}
+
+.logo{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    font-weight:800;
+    font-size:1.1rem;
+    color:var(--primary);
+}
+
+.logo-icon{
+    width:42px;
+    height:42px;
+    border-radius:14px;
+    background:linear-gradient(135deg,#3754DB 0%,#5D78FF 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 10px 25px rgba(55,84,219,.25);
+}
+
+.container{
+    background:var(--card);
+    border-radius:28px;
+    padding:28px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:28px;
+    box-shadow:0 15px 45px rgba(15,23,42,.06);
+}
+
+.card{
+    background:#fff;
+    border:1px solid #edf1fa;
+    border-radius:22px;
+    padding:24px;
+}
+
+.title{
+    font-size:1.1rem;
+    font-weight:700;
+    margin-bottom:6px;
+}
+
+.subtitle{
+    color:var(--light);
+    font-size:.95rem;
+    margin-bottom:18px;
+    line-height:1.5;
+}
+
+textarea{
+    width:100%;
+    height:340px;
+    resize:none;
+    border:none;
+    outline:none;
+    background:#F8FAFF;
+    border:2px solid transparent;
+    border-radius:18px;
+    padding:18px;
+    font-size:1rem;
+    color:var(--text);
+    line-height:1.7;
+    transition:.25s;
+}
+
+textarea:focus{
+    border-color:var(--primary);
+    background:white;
+}
+
+textarea::placeholder{
+    color:#94A3B8;
+}
+
+.option-card{
+    margin-top:18px;
+    background:#F8FAFF;
+    border:1px solid #E6ECFF;
+    border-radius:18px;
+    padding:16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    transition:.25s;
+}
+
+.option-card:hover{
+    transform:translateY(-2px);
+}
+
+.option-info{
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+.option-icon{
+    min-width:46px;
+    width:46px;
+    height:46px;
+    border-radius:14px;
+    background:rgba(55,84,219,.1);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--primary);
+}
+
+.option-text strong{
+    display:block;
+    font-size:.97rem;
+}
+
+.option-text span{
+    color:var(--light);
+    font-size:.88rem;
+}
+
+.switch{
+    position:relative;
+    width:58px;
+    height:32px;
+}
+
+.switch input{
+    opacity:0;
+    width:0;
+    height:0;
+}
+
+.slider{
+    position:absolute;
+    inset:0;
+    cursor:pointer;
+    background:#CBD5E1;
+    transition:.3s;
+    border-radius:50px;
+}
+
+.slider:before{
+    content:"";
+    position:absolute;
+    width:24px;
+    height:24px;
+    left:4px;
+    top:4px;
+    background:white;
+    transition:.3s;
+    border-radius:50%;
+    box-shadow:0 3px 8px rgba(0,0,0,.15);
+}
+
+.switch input:checked + .slider{
+    background:var(--primary);
+}
+
+.switch input:checked + .slider:before{
+    transform:translateX(26px);
+}
+
+.result-card{
+    background:linear-gradient(180deg,#F7F9FF 0%,#EEF3FF 100%);
+    border-radius:24px;
+    padding:30px 24px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100%;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+}
+
+.badge{
+    background:white;
+    border:1px solid #E6ECFF;
+    color:var(--primary);
+    padding:10px 16px;
+    border-radius:999px;
+    font-weight:700;
+    font-size:.9rem;
+    margin-bottom:24px;
+}
+
+.winner{
+    min-height:120px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:2.7rem;
+    font-weight:800;
+    color:var(--primary);
+    margin-bottom:26px;
+    word-break:break-word;
+    transition:.2s;
+}
+
+.animating{
+    animation:pulse .09s infinite alternate;
+    color:#1E293B;
+}
+
+@keyframes pulse{
+    from{transform:scale(1)}
+    to{transform:scale(1.05)}
+}
+
+.btn{
+    width:100%;
+    border:none;
+    border-radius:18px;
+    background:linear-gradient(135deg,#3754DB 0%,#5D78FF 100%);
+    color:white;
+    padding:18px;
+    font-size:1.08rem;
+    font-weight:700;
+    cursor:pointer;
+    transition:.25s;
+    box-shadow:0 12px 28px rgba(55,84,219,.3);
+}
+
+.btn:hover{
+    transform:translateY(-2px);
+}
+
+.btn:disabled{
+    opacity:.7;
+    cursor:not-allowed;
+    transform:none;
+}
+
+.hidden-list{
+    opacity:.15;
+    pointer-events:none;
+    filter:blur(3px);
+    transition:.35s;
+}
+
+@media(max-width:900px){
+
+    body{
+        padding:12px;
+    }
+
+    .container{
+        grid-template-columns:1fr;
+        padding:16px;
+        border-radius:22px;
+    }
+
+    .card{
+        padding:18px;
+    }
+
+    .winner{
+        font-size:2rem;
+        min-height:90px;
+    }
+
+    textarea{
+        height:250px;
+        font-size:.96rem;
+    }
+
+    .header{
+        flex-direction:column-reverse;
+        align-items:stretch;
+    }
+
+    .logo{
+        justify-content:center;
+    }
+
+    .btn-home{
+        justify-content:center;
+    }
+
+}
+</style>
+</head>
+
+<body>
+
+<div class="page">
+
+    <div class="header">
+
+        <a href="index.html" class="btn-home">
+
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 10.5L12 3L21 10.5"></path>
+                <path d="M5 9.5V20H19V9.5"></path>
+            </svg>
+
+            Voltar ao início
+        </a>
+
+        <div class="logo">
+
+            <div class="logo-icon">
+
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L14.8 9.2L22 12L14.8 14.8L12 22L9.2 14.8L2 12L9.2 9.2L12 2Z"
+                    fill="white"/>
+                </svg>
+
+            </div>
+
+            Lúmna Educa
+        </div>
+
+    </div>
+
+    <div class="container">
+
+        <div class="card" id="listaCard">
+
+            <div class="title">Lista de participantes</div>
+
+            <div class="subtitle">
+                Insira um nome por linha.<br>
+                Exemplo abaixo:
+            </div>
+
+<textarea id="listaNomes" placeholder="Ana Clara
+João Pedro
+Maria Eduarda
+Lucas Henrique
+Beatriz Lima
+Gabriel Souza"></textarea>
+
+            <div class="option-card">
+
+                <div class="option-info">
+
+                    <div class="option-icon">
+
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6H5H21"></path>
+                            <path d="M8 6V4H16V6"></path>
+                            <path d="M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z"></path>
+                        </svg>
+
+                    </div>
+
+                    <div class="option-text">
+                        <strong>Remover após sorteio</strong>
+                        <span>Evita repetição de nomes já sorteados</span>
+                    </div>
+
+                </div>
+
+                <label class="switch">
+                    <input type="checkbox" id="removerSorteado" checked>
+                    <span class="slider"></span>
+                </label>
+
+            </div>
+
+        </div>
+
+        <div class="result-card">
+
+            <div class="badge">
+                Sorteador Inteligente
+            </div>
+
+            <div class="winner" id="resultado">?</div>
+
+            <button class="btn" id="btnSortear" onclick="sortear()">
+                Sortear Nome
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+const listaNomesInput = document.getElementById('listaNomes');
+const resultadoDisplay = document.getElementById('resultado');
+const btnSortear = document.getElementById('btnSortear');
+const checkboxRemover = document.getElementById('removerSorteado');
+const listaCard = document.getElementById('listaCard');
+
+function obterNomesValidos(){
+
+    return listaNomesInput.value
+        .split('\n')
+        .map(nome => nome.trim())
+        .filter(nome => nome !== '');
+
+}
+
+function esconderLista(){
+
+    listaCard.classList.add('hidden-list');
+
+}
+
+function mostrarLista(){
+
+    listaCard.classList.remove('hidden-list');
+
+}
+
+function sortear(){
+
+    let nomes = obterNomesValidos();
+
+    if(nomes.length === 0){
+
+        alert('Adicione pelo menos um nome.');
+        return;
+
+    }
+
+    esconderLista();
+
+    btnSortear.disabled = true;
+    btnSortear.innerText = 'Sorteando...';
+
+    resultadoDisplay.classList.add('animating');
+
+    let tempoAnimacao = 2000;
+    let intervalo = 55;
+    let tempoGasto = 0;
+
+    let efeitoRoleta = setInterval(() => {
+
+        let nomeAleatorio = nomes[Math.floor(Math.random() * nomes.length)];
+
+        resultadoDisplay.innerText = nomeAleatorio;
+
+        tempoGasto += intervalo;
+
+        if(tempoGasto >= tempoAnimacao){
+
+            clearInterval(efeitoRoleta);
+
+            finalizarSorteio(nomes);
+
+        }
+
+    }, intervalo);
+
+}
+
+function finalizarSorteio(nomes){
+
+    resultadoDisplay.classList.remove('animating');
+
+    let indiceSorteado = Math.floor(Math.random() * nomes.length);
+
+    let vencedor = nomes[indiceSorteado];
+
+    resultadoDisplay.innerText = vencedor;
+
+    confetti({
+        particleCount:120,
+        spread:75,
+        origin:{ y:0.6 },
+        colors:['#3754DB','#5D78FF','#ffffff']
+    });
+
+    if(checkboxRemover.checked){
+
+        nomes.splice(indiceSorteado,1);
+
+        listaNomesInput.value = nomes.join('\n');
+
+    }
+
+    setTimeout(() => {
+
+        mostrarLista();
+
+    }, 2000);
+
+    btnSortear.disabled = false;
+    btnSortear.innerText = 'Sortear Novamente';
+
+}
+
+</script>
+
+</body>
+</html>
